@@ -3,6 +3,7 @@
  {erts, "@ERLANG_ERTS_VER@"},
  [{kernel,"@ERLANG_LIB_VER_kernel@"},
   {stdlib,"@ERLANG_LIB_VER_stdlib@"},
+  {sasl,"2.3.1"},
   {ssl, "@ERLANG_LIB_VER_ssl@"},
   {mnesia, "@ERLANG_LIB_VER_mnesia@"},
   {crypto, "@ERLANG_LIB_VER_crypto@"},

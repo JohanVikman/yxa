@@ -334,7 +334,7 @@ test_regexp_routing2() ->
 		proto = yxa_test,
 		uri   = Regexp1_Output_URL
 	       },
-    {ok, _SipSocket_Res1, Branch_Res1} =
+    {ok, _SipSocket_Res1, _Branch_Res1} =
 	transportlayer:send_proxy_request(TestSipSocket, Request1, TestSipDst1, []),
 
     autotest:mark(?LINE, "request/2 - regexp routing - 1.3"),

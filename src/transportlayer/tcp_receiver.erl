@@ -196,14 +196,12 @@ recv_loop(#state{linked = false, socketmodule = ssl} = State, Recv) when is_reco
     %% Socket is SSL and this is the first time we enter recv_loop(). Link to sockets pid
     %% and set us up to receive exit signals from our parent and from the sockets pid.
     process_flag(trap_exit, true),
-    SocketPid = ssl:pid(State#state.socket),
-    true = link(SocketPid),
+    true = link(State#state.socket),
     recv_loop(State#state{linked = true}, Recv);
 recv_loop(#state{socketmodule = ssl} = State, Recv) when is_record(Recv, recv) ->
     #state{socket = Socket,
 	   parent = Parent
 	  } = State,
-    SocketPid = ssl:pid(Socket),
     %% Must set {active, once} here even if tcp_listener did it right before us -
     %% it seems as if the SSL socket looses this status when controlling process is changed.
     ssl:setopts(Socket, [{active, once}]),
@@ -236,7 +234,7 @@ recv_loop(#state{socketmodule = ssl} = State, Recv) when is_record(Recv, recv) -
 			   [Socket]),
 		quit;
 
-	    {'EXIT', SocketPid, Reason} ->
+	    {'EXIT', Socket, Reason} ->
 		logger:log(debug, "TCP receiver: SSL socket ~p terminated, shutting down. Reason was : ~p",
 			   [Socket, Reason]),
 		close;

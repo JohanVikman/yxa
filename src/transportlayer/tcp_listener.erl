@@ -258,7 +258,7 @@ accept_loop(State) when is_record(State, state) ->
 my_accept(gen_tcp, Socket) ->
     gen_tcp:accept(Socket);
 my_accept(ssl, Socket) ->
-    try ssl:transport_accept(Socket) of
+    case ssl:transport_accept(Socket) of
 	{ok, NewSocket} ->
 	    case ssl:ssl_accept(NewSocket) of
 		ok ->
@@ -268,10 +268,6 @@ my_accept(ssl, Socket) ->
 	    end;
 	E ->
 	    E
-    catch
-	  error: undef ->
-	    %% try old SSL accept interface
-	    ssl:accept(Socket)
     end.
 
 %%--------------------------------------------------------------------
