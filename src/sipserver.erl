@@ -58,7 +58,7 @@ start(normal, [AppModule]) ->
     %% First of all, we add a custom error_logger module. This is the only
     %% way to really get all information about why supervised subsystems fails
     %% to start.
-    sup_error_logger:start(),
+    sup_error_logger:start(), %% TODO:Will we need to start another logger/ Use MA logger instead
     catch ssl:start(),
     mnesia:start(),
     ok = init_statistics(),

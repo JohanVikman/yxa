@@ -104,8 +104,10 @@ extract_pids([], Res) ->
 init({AppModule, MnesiaTables}) ->
     CfgServer = {yxa_config, {yxa_config, start_link, [AppModule]},
 		 permanent, 2000, worker, [yxa_config]},
+    %%TODO: Do we need to start another logger/ Use MA-logger instead?
     Logger = {logger, {logger, start_link, []},
                  permanent, 2000, worker, [logger]},
+    %%TODO: Do we need to start the LDAP service if it is not configure to use?
     Directory = {directory, {directory, start_link, []},
                  permanent, 2000, worker, [directory]},
     DialogServer = {dialog_server, {dialog_server, start_link, []},

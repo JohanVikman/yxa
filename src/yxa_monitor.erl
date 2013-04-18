@@ -120,6 +120,10 @@ init({AppModule, MnesiaTables}) ->
 %% @hidden
 %% @end
 %%--------------------------------------------------------------------
+
+handle_call({add_mnesia_tables, none}, _From, State) ->
+    {reply, ok, State};
+
 handle_call({add_mnesia_tables, Tables}, _From, State) when is_list(Tables) ->
     NewL = lists:usort(Tables ++ State#state.mnesia_tables),
     {reply, ok, State#state{mnesia_tables = NewL}, ?TIMEOUT};
