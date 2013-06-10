@@ -211,13 +211,16 @@ parse("sip:" ++ RURL) ->
 parse("sips:" ++ RURL) ->
     %% fast track for lower-case sips:
     parse2("sips", RURL);
+parse("tel:" ++ RURL) ->
+    %% fast track for lower-case sip:
+    parse2("tel", RURL);
 parse(URLStr) ->
     %% find proto by looking for :, and lower-casing what is found before it
     case string:chr(URLStr, $:) of
 	N when is_integer(N), N > 0 ->
 	    In = string:substr(URLStr, 1, N - 1),
 	    case string:to_lower(In) of
-		LC when LC == "sip"; LC == "sips" ->
+		LC when LC == "sip"; LC == "sips"; LC == "tel" ->
 		    RURL = string:substr(URLStr, N + 1),
 		    parse2(LC, RURL);
 		_ ->
@@ -235,9 +238,16 @@ parse2(Proto, RURL) ->
 	    throw({yxa_unparsable, url, {Error, Proto ++ ":" ++ RURL}})
     end.
 
+
+parse_url("tel", TelephoneSubscriber) ->
+    parse_tel_url(TelephoneSubscriber);
+parse_url(Proto, RURL) ->
+    parse_sip_url(Proto, RURL).    
+
+
 %% URL = URL input without the proto: prefix ("sip:" that is)
 %% Returns : sipurl record() | throw() (if parse failed)
-parse_url(Proto, URL) ->
+parse_sip_url(Proto, URL) ->
     {User, Password, HostportParametersHeaders} =
 	case sipparse_util:split_fields(URL, $@) of
 	    {Userinfo, HostportParametersHeaderRest} ->
@@ -279,6 +289,93 @@ parse_url(Proto, URL) ->
 	false ->
 	    unparsable
     end.
+
+
+%% URL = URL input without the proto: prefix ("tel:" that is)
+%% Returns : sipurl record() | throw() (if parse failed)
+
+%%   URI Syntax
+
+%%    The URI is defined using the ABNF (augmented Backus-Naur form)
+%%    described in RFC 2234 [RFC2234] and uses elements from the core
+%%    definitions (appendix A of RFC 2234).
+
+%% The syntax definition follows RFC 2396 [RFC2396],
+%%  indicating the
+%%    actual characters contained in the URI.  If the reserved characters
+%% "+", ";", "=", and "?" are used as delimiters between components of
+%% the "tel" URI, they MUST NOT be percent encoded.  These characters
+%%    MUST be percent encoded if they appear in tel URI parameter values.
+
+%%    Characters other than those in the "reserved" and "unsafe" sets (see
+%%    RFC 2396 [RFC2396]) are equivalent to their "% HEX HEX" percent
+%%    encoding.
+
+%%    The "tel" URI has the following syntax:
+
+%%    telephone-uri        = "tel:" telephone-subscriber
+%%    telephone-subscriber = global-number / local-number
+%%    global-number        = global-number-digits *par
+%%    local-number         = local-number-digits *par context *par
+%%    par                  = parameter / extension / isdn-subaddress
+%%    isdn-subaddress      = ";isub=" 1*uric
+%%    extension            = ";ext=" 1*phonedigit
+%%    context              = ";phone-context=" descriptor
+%%    descriptor           = domainname / global-number-digits
+%%    global-number-digits = "+" *phonedigit DIGIT *phonedigit
+%%    local-number-digits  =
+%%       *phonedigit-hex (HEXDIG / "*" / "#")*phonedigit-hex
+%%    domainname           = *( domainlabel "." ) toplabel [ "." ]
+%%    domainlabel          = alphanum
+%%                           / alphanum *( alphanum / "-" ) alphanum
+%%    toplabel             = ALPHA / ALPHA *( alphanum / "-" ) alphanum
+%%    parameter            = ";" pname ["=" pvalue ]
+%%    pname                = 1*( alphanum / "-" )
+%%    pvalue               = 1*paramchar
+%%    paramchar            = param-unreserved / unreserved / pct-encoded
+%%    unreserved           = alphanum / mark
+%%    mark                 = "-" / "_" / "." / "!" / "~" / "*" /
+%%                           "'" / "(" / ")"
+%%    pct-encoded          = "%" HEXDIG HEXDIG
+%%    param-unreserved     = "[" / "]" / "/" / ":" / "&" / "+" / "$"
+%%    phonedigit           = DIGIT / [ visual-separator ]
+%%    phonedigit-hex       = HEXDIG / "*" / "#" / [ visual-separator ]
+%%    visual-separator     = "-" / "." / "(" / ")"
+%%    alphanum             = ALPHA / DIGIT
+%%    reserved             = ";" / "/" / "?" / ":" / "@" / "&" /
+%%                           "=" / "+" / "$" / ","
+%%    uric                 = reserved / unreserved / pct-encoded
+
+%% Each parameter name ("pname"), the ISDN subaddress, the 'extension',
+%%    and the 'context' MUST NOT appear more than once.  The 'isdn-
+%%    subaddress' or 'extension' MUST appear first, if present,
+%%    followed by the 'context' parameterm, if present, followed by any other 
+%%    parameters in lexicographical order.
+%%       This simplifies comparison when the "tel" URI is compared
+%%       character by character, such as in SIP URIs [RFC3261].
+
+parse_tel_url("+" ++ _ = GlobalNum) ->
+    {ok, [GlobalNumberDigits|Parameters]} = sipparse_util:split_non_quoted($;, GlobalNum),
+    new([{proto,"tel"}, {user, GlobalNumberDigits}, {param, Parameters}]);
+parse_tel_url(LocalNum) ->
+    %%    local-number = local-number-digits *par context *par
+    {ok, [LocalNumberDigits|Parameters]} = sipparse_util:split_non_quoted($;, LocalNum),
+    %%Ensure that there is a context
+    case contains_context_param(Parameters) of
+        true ->
+            new([{proto,"tel"}, {user, LocalNumberDigits}, {param, Parameters}]);
+        false ->
+            missing_phone_context
+    end.    
+
+
+contains_context_param([]) ->
+    false;
+contains_context_param(["phone-context="++_|_]) ->
+    true;
+contains_context_param([_|Rest]) ->
+    contains_context_param(Rest).
+
 
 %% The parse functions are somewhat lax compared to the BNF specification so this
 %% function is used to check that fields only contain the expected characters and
@@ -721,11 +818,11 @@ new(AttrList) ->
 %%--------------------------------------------------------------------
 
 %% PROTO
-set([{proto, Val} | T], URL) when is_record(URL, sipurl), Val == "sip"; Val == "sips" ->
+set([{proto, Val} | T], URL) when is_record(URL, sipurl), Val == "sip"; Val == "sips"; Val == "tel" ->
     set(T, URL#sipurl{proto=Val});
 set([{proto, Val} | T], URL) when is_record(URL, sipurl), is_list(Val) ->
     case string:to_lower(Val) of
-	L when L == "sip"; L == "sips" ->
+	L when L == "sip"; L == "sips"; L == "tel" ->
 	    set(T, URL#sipurl{proto=L});
 	_ ->
 	    erlang:error("sipurl:set/2 with non-sip or sips URI", [[{proto, Val} | T], URL])
