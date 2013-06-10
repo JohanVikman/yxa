@@ -356,14 +356,14 @@ parse_sip_url(Proto, URL) ->
 
 parse_tel_url("+" ++ _ = GlobalNum) ->
     {ok, [GlobalNumberDigits|Parameters]} = sipparse_util:split_non_quoted($;, GlobalNum),
-    new([{proto,"tel"}, {user, GlobalNumberDigits}, {param, Parameters}]);
+    new([{proto,"tel"}, {host, "foo.com"}, {user, GlobalNumberDigits}, {param, Parameters}]);
 parse_tel_url(LocalNum) ->
     %%    local-number = local-number-digits *par context *par
     {ok, [LocalNumberDigits|Parameters]} = sipparse_util:split_non_quoted($;, LocalNum),
     %%Ensure that there is a context
     case contains_context_param(Parameters) of
         true ->
-            new([{proto,"tel"}, {user, LocalNumberDigits}, {param, Parameters}]);
+            new([{proto,"tel"}, {host, "foo.com"}, {user, LocalNumberDigits}, {param, Parameters}]);
         false ->
             missing_phone_context
     end.    
